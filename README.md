@@ -1,3 +1,5 @@
 # AWS
 
-Automate the Transfer of files in a EC2 instance specific location(ex: C://DB/Folder) to S3 bucket using AWS Lambda function(lambda_function.py) and SSM Command document using PowerShell Script(mms.ps1)
+Automate the execution of SSM Document using AWS Lambda function and upon Success/Fail send a Email Notification Using AWS SNS.
+
+automation.ps1 is a powershell script that transfer files in a specific location(ex: C://MYSQL/AUTOMATION) to AWS S3 bucket. To Automate this process we are using AWS Lambda funcation to trigger the SSM Document everyday at a specified time, for this we are using AWS EventBridge to schedule a trigger to lambda. 
