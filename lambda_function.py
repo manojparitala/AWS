@@ -3,15 +3,34 @@ from collections import defaultdict
 import boto3
 import time
 import json
+ec2 = boto3.client('ec2')
+ssm = boto3.client('ssm')
+client = boto3.client('s3')
 
 """
 A tool for retrieving basic information from the running EC2 instances.
 """
+def check_response(response_json):
+    try:
+        if response_json['ResponseMetadata']['HTTPStatusCode'] == 200:
+            return True
+        else:
+            return False
+    except KeyError:
+        return False
+
+def send_command(instance_id):
+    response = ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="Copy-tagvalues",
+        )
+
+    if check_response(response):
+        command_id = response['Command']['CommandId']
+        return command_id
+    
 def lambda_handler(event, context):
 # Connect to EC2
-    ec2 = boto3.client('ec2')
-    ssm = boto3.client('ssm')
-
     describeInstance = ec2.describe_instances(Filters=[
             {
                 'Name': 'tag:Type',
@@ -27,41 +46,19 @@ def lambda_handler(event, context):
                 InstanceId.append(instance['InstanceId'])
 
      # looping through instance ids
-    for instanceid in InstanceId:
+    commandId = []
+    for instance_id in InstanceId:
         # command to be executed on instance
-        response = ssm.send_command(
-                InstanceIds=[instanceid],
-                DocumentName="Copy-tagvalues",
-
-                )
-
-        # fetching command id for the output
-        command_id = response['Command']['CommandId']
-
-        # time.sleep(2)
-
-        # fetching command output
-        output = ssm.list_command_invocations(
-              CommandId=command_id,
-              InstanceId=instanceid
-            )
+        command_id = send_command(instance_id)
+        commandId.append(command_id)
+        
+    hostzone2=json.dumps(commandId)
+    
+    client.put_object(Body=hostzone2, Bucket='<S3_BUCKET_NAME>', Key='<FILENAME.JSON>')
 
     return {
-        'statusCode': 200,
-        'body': json.dumps(output),
-        'command_id': command_id
+        'json': hostzone2,
+        'command_id': commandId,
+
     }
 
-# def get_instance_name(fid):
-#     """
-#         When given an instance ID as str e.g. 'i-1234567', return the instance 'Name' from the name tag.
-#         :param fid:
-#         :return:
-#     """
-#     ec2 = boto3.resource('ec2')
-#     ec2instance = ec2.Instance(fid)
-#     instancename = ""
-#     for tags in ec2instance.tags:
-#         if tags["Key"] == "Environment":
-#             instancename = tags["Value"]
-#     return instancename
